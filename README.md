@@ -12,6 +12,12 @@ Editable diagram sources: [Mermaid source](docs/architecture.mmd) · [PlantUML s
 
 The system has three coordinated loops: **real-time performance**, **short-term adaptation**, and **background model learning**. Learning can be continuous, but projector output must never wait for training.
 
+## Use cases
+
+![Use case diagram](docs/use-cases.svg)
+
+Editable source: [PlantUML use case diagram](docs/use-cases.puml). The diagram covers the performer, VJ operator, and researcher workflows—from live capture and projection to dataset export, offline evaluation, candidate-model validation, and safe promotion or rollback.
+
 ## How it works
 
 1. **Capture — camera:** receive raw live video from a person.
