@@ -1,0 +1,19 @@
+flowchart LR
+    CAM["Camera / live human video"] --> PY["Python · MediaPipe Pose<br/>landmarks + timestamps"]
+    PY --> SLOT["Latest-pose slot<br/>bounded; discard stale frames"]
+    SLOT --> MOT["Rust motion engine<br/>follow / buffer / loop / blend"]
+    MOT --> RENDER["Rust renderer · wgpu<br/>trails / silhouettes / effects"]
+    RENDER --> PROJ["Projector<br/>fullscreen output"]
+
+    UI["JavaScript control panel<br/>calibration / color / trails / loop"] <-->|"local WebSocket or OSC"| MOT
+    PY -. "async recording" .-> DB[("dance.poses.sqlite")]
+    DB --> JSONL["poses.jsonl"]
+    JSONL --> KAG["Kaggle / Python<br/>offline analysis & training"]
+    KAG -. "metrics / prepared motion" .-> JSONL
+
+    classDef live fill:#e8f4ff,stroke:#2878a8,color:#102a43
+    classDef realtime fill:#e7f8ef,stroke:#21865b,color:#123b2b
+    classDef offline fill:#fff3d6,stroke:#a56a00,color:#4a3200
+    class CAM,PY,SLOT live
+    class MOT,RENDER,PROJ,UI realtime
+    class DB,JSONL,KAG offline
