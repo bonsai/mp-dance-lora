@@ -1,154 +1,66 @@
 # mp-dance-lora
 
-**Record human dance motion with MediaPipe, analyze it on Kaggle, and build models that can mimic motion.**
+**Low-latency dance VJ: live human video in, continuous motion and projection out.**
 
-\`mp-dance-lora\` explores a reproducible pipeline from real-world movement to structured pose data and motion-learning experiments. The first goal is to record dance reliably; the next is to measure movement and prepare a dataset for a model that can imitate or generate similar motion.
+Capture a real person with a camera. The system should keep producing dance visuals even when the person stops moving. Rendering is replaceable: use any renderer that can display fullscreen to a projector.
 
-> **Current status:** project plan and data contract. The pipeline below describes the intended workflow; it does not imply that capture, Kaggle analysis, or LoRA training is already implemented.
+## Runtime
 
-## Goal
+```text
+Camera
+  -> MediaPipe Pose (live landmarks)
+  -> motion engine
+       ├─ follow live movement when detected
+       └─ continue / replay / transform recorded dance when movement stops
+  -> real-time renderer
+  -> fullscreen projector output
+```
 
-Turn dance into data that can be stored, inspected, compared, and learned from:
+The output must not freeze when live movement disappears. The motion engine and renderer run independently from the camera capture, so a slow inference frame does not stall projection.
 
-1. Capture dance from a camera or video with MediaPipe Pose.
-2. Save frame-level landmarks and timing to \`dance.poses.sqlite\`.
-3. Export a portable JSONL dataset.
-4. Check FPS, timestamps, missing frames, landmark confidence, and motion continuity.
-5. Analyze sessions in Kaggle and export metrics.
-6. Train and evaluate a motion imitation model.
+## Initial constraints
 
-## Pipeline
+- Target machine: 16 GB RAM; CPU-first and modest-GPU friendly.
+- Priority: low end-to-end latency, stable frame pacing, no growing frame queue.
+- Input: live raw human video capture, not just prerecorded VTuber clips.
+- Output: projector-friendly fullscreen window; renderer can be replaced.
+- First visual target: pose lines / silhouette / trails / repeated motion. Add a 3D avatar or generative video only if needed later.
+- Rust is an option for the real-time motion/rendering layer.
 
-\`\`\`text
-Camera / video
-      |
-      v
-MediaPipe Pose
-      |
-      +----> dance.poses.sqlite  (local source of truth)
-      |
-      v
-JSONL export (one record per frame)
-      |
-      v
-Validation: timestamps / FPS / landmarks / gaps
-      |
-      v
-Kaggle: quality analysis + motion features
-      |
-      v
-Dataset preparation
-      |
-      +----> pose-to-motion / sequence model
-      |
-      +----> image or video LoRA, if paired media and captions are available
-\`\`\`
+## Suggested implementation
 
-## Data design
+- **Capture and pose:** MediaPipe Pose Landmarker in live-stream mode; process the newest frame and drop stale frames rather than building latency.
+- **Motion continuity:** maintain a small ring buffer of recent pose frames. When the person becomes still or detection is lost, loop, blend, mirror, or transform a captured motion phrase.
+- **Rendering:** start with a lightweight 2D renderer. Rust + `wgpu` is a possible cross-platform GPU route; the renderer is not part of the data contract.
+- **Training:** keep offline model training separate from the live performance process. Use recorded poses for analysis and motion-model experiments; do not require LoRA inference for the first live prototype.
 
-### SQLite
+MediaPipe supports live-stream processing and may drop input frames when needed to reduce latency. See [Pose Landmarker](https://developers.google.com/edge/mediapipe/solutions/vision/pose_landmarker). Rust's [wgpu](https://wgpu.rs/) provides cross-platform GPU rendering.
 
-Use \`dance.poses.sqlite\` as the local source of truth. Keep sessions and frames identifiable so recordings can be resumed, audited, and exported consistently.
+## File extensions
 
-A frame record should preserve:
+- `.mp4` — optional recording of the camera input
+- `.jsonl` — timestamped pose frames for export and replay
+- `.sqlite` — local pose/session store, e.g. `dance.poses.sqlite`
+- `.ipynb` — offline Kaggle analysis and experiments
+- `.safetensors` — optional trained model/LoRA weights; not required for the first live VJ
+- `.vrma`, `.vmd`, or `.fbx` — optional avatar-motion interchange formats, depending on the target avatar/runtime
 
-- \`session_id\`: stable identifier for one recording
-- \`frame_index\`: original frame order
-- \`timestamp_ms\`: capture or source-media timestamp
-- \`source_fps\`: source or requested capture FPS
-- \`width\`, \`height\`: source frame dimensions when available
-- \`landmarks\`: MediaPipe landmark coordinates and available visibility/presence values
-- \`schema_version\`: data-contract version
+## Low-latency rules
 
-Store missing or failed detections explicitly rather than silently dropping frames. Keep original coordinates and any normalized/transformed representation distinguishable.
+1. Capture, pose inference, motion logic, and rendering must not block one another.
+2. Prefer a latest-frame slot or bounded queue; drop stale frames instead of accumulating delay.
+3. Measure capture-to-projection latency and displayed FPS.
+4. Keep inference resolution and model complexity configurable.
+5. Keep the first prototype independent of large generative models.
+6. When live movement stops, continue output from the motion buffer rather than waiting for new camera motion.
 
-### JSONL
+## Development sequence
 
-Export one frame per line. Example contract (illustrative, not yet a generated dataset):
+1. Display live pose landmarks fullscreen.
+2. Record timestamped landmarks to `dance.poses.sqlite` and export JSONL.
+3. Add a ring buffer and continuous playback while the performer is still.
+4. Add trails, duplication, color, and projection-friendly controls.
+5. Measure latency and frame pacing on the 16 GB target machine.
+6. Explore pose-sequence generation or LoRA only after the live VJ loop works.
 
-\`\`\`json
-{
-  "schema_version": "1.0",
-  "session_id": "dance-session-001",
-  "frame_index": 0,
-  "timestamp_ms": 0,
-  "source_fps": 30.0,
-  "image": { "width": 1280, "height": 720 },
-  "landmarks": [
-    { "name": "nose", "x": 0.51, "y": 0.18, "z": -0.02, "visibility": 0.99 }
-  ]
-}
-\`\`\`
-
-The example shows one landmark only; a real record should contain the available landmark set. Document whether coordinates are normalized, image-relative, or world coordinates.
-
-## FPS and recording quality
-
-Do not trust the requested FPS alone. Calculate observed frame intervals from timestamps:
-
-\`\`\`text
-observed_fps = 1000 / median(timestamp_ms[i] - timestamp_ms[i-1])
-\`\`\`
-
-Report at least:
-
-- requested/source FPS and measured FPS
-- timestamp interval distribution and gaps
-- missing or duplicate frames
-- landmark detection rate and confidence/visibility distribution
-- implausible coordinate jumps and discontinuities
-- usable duration and rejected-frame ratio
-
-For variable-frame-rate video, preserve source timestamps instead of manufacturing evenly spaced timestamps. If resampling is needed for training, retain the original timeline and document the resampling policy.
-
-## Kaggle analysis
-
-Use Kaggle notebooks for repeatable, shareable analysis—not as the only copy of the raw data.
-
-Suggested outputs:
-
-- \`frame_quality.csv\`: frame-level quality checks
-- \`session_metrics.csv\`: per-session FPS, duration, missingness, and motion summaries
-- \`motion_features.csv\`: derived velocity, acceleration, joint angles, and sequence features
-- plots for timestamp intervals, landmark confidence, and motion trajectories
-
-Split training and evaluation by **recording/session or performer**, not randomly by individual frames. Adjacent frames are highly correlated and random frame splits can leak nearly identical poses into both sets. Upload only media and pose data that you have permission to use; remove identifying information when it is not needed.
-
-## What does “mimic motion” mean?
-
-Choose the learning path based on the intended output:
-
-| Intended result | Data needed | Suitable direction |
-| --- | --- | --- |
-| Reproduce or generate a dance pose sequence | Time-ordered landmarks, timestamps, performer/session metadata | Pose-sequence or motion-generation model |
-| Map a pose sequence to an avatar | Landmark sequences plus a rig/retargeting definition | Pose-to-avatar retargeting |
-| Generate images or video in a dance style | Consented/licensed images or video, captions, and optionally paired pose/control data | Image/video model fine-tuning or LoRA |
-
-**Important:** MediaPipe landmark JSONL alone is not a standard image-generation LoRA training dataset. A LoRA for image/video generation needs suitable media and captions, while motion imitation from landmarks is a separate modeling task. Keep these paths separate until the target model and evaluation criteria are decided.
-
-## Implementation order
-
-1. [Issue #2 — Record MediaPipe Pose to SQLite](https://github.com/bonsai/mp-dance-lora/issues/2)
-2. [Issue #3 — Define SQLite/JSONL schema and exporter](https://github.com/bonsai/mp-dance-lora/issues/3)
-3. [Issue #4 — Evaluate FPS, data quality, and motion features on Kaggle](https://github.com/bonsai/mp-dance-lora/issues/4)
-4. [Issue #5 — Decide model target, training data, and evaluation](https://github.com/bonsai/mp-dance-lora/issues/5)
-5. [Epic #1 — End-to-end capture-to-model pipeline](https://github.com/bonsai/mp-dance-lora/issues/1)
-
-## Success criteria
-
-- A recording produces a SQLite session with ordered, timestamped frames.
-- JSONL can be exported and validated against the same schema.
-- Reported FPS is measured from timestamps and recording gaps are visible.
-- Kaggle analysis can reproduce session-level quality metrics.
-- Training/evaluation splits avoid session leakage.
-- The selected model can be evaluated against a documented baseline.
-
-## Privacy and dataset responsibility
-
-Record only with appropriate consent. Check licenses and permissions before uploading recordings to Kaggle or using them for training. Treat raw video as more identifying than pose landmarks, but do not assume landmark data is automatically anonymous.
-
-## Related
-
-- Repository: https://github.com/bonsai/mp-dance-lora
-- MediaPipe Pose: https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker
-- Kaggle: https://www.kaggle.com/
+See [Issue #1](https://github.com/bonsai/mp-dance-lora/issues/1) for the end-to-end project and [Issues #2–#5](https://github.com/bonsai/mp-dance-lora/issues) for capture, data, evaluation, and model experiments.
