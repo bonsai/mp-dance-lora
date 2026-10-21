@@ -1,0 +1,55 @@
+@startuml
+title mp-dance-lora — Use Case Diagram
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+
+actor "Performer" as Performer
+actor "VJ Operator" as Operator
+actor "Researcher / Model Trainer" as Researcher
+
+rectangle "mp-dance-lora Dance VJ System" {
+  usecase "Capture live movement" as UC1
+  usecase "Estimate body pose" as UC2
+  usecase "Project visuals in real time" as UC3
+  usecase "Continue motion when performer is still" as UC4
+  usecase "Calibrate camera and projection" as UC5
+  usecase "Adjust effects and motion parameters" as UC6
+  usecase "Record timestamped pose data" as UC7
+  usecase "Export pose dataset (JSONL)" as UC8
+  usecase "Analyze motion quality and timing" as UC9
+  usecase "Train candidate motion / LoRA model" as UC10
+  usecase "Evaluate candidate model" as UC11
+  usecase "Promote or roll back model version" as UC12
+  usecase "Monitor latency, FPS and memory" as UC13
+}
+
+Performer --> UC1
+Performer --> UC3
+Operator --> UC3
+Operator --> UC5
+Operator --> UC6
+Operator --> UC13
+Researcher --> UC8
+Researcher --> UC9
+Researcher --> UC10
+Researcher --> UC11
+Researcher --> UC12
+
+UC1 .> UC2 : <<include>>
+UC2 .> UC3 : <<include>>
+UC3 .> UC4 : <<extend>>\n[no reliable live movement]
+UC1 .> UC7 : <<include>>
+UC7 .> UC8 : <<include>>
+UC8 .> UC9 : <<include>>
+UC9 .> UC10 : <<include>>
+UC10 .> UC11 : <<include>>
+UC11 .> UC12 : <<include>>
+
+note bottom of UC12
+Model updates are validated offline/background.
+Promote at a safe motion boundary; retain rollback.
+Training never blocks live projection.
+end note
+@enduml
