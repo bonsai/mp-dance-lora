@@ -1,0 +1,41 @@
+@startuml
+title mp-dance-lora — Low-latency Dance VJ (16 GB RAM)
+left to right direction
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+actor "Performer" as Human
+component "Camera / Capture" as Camera
+component "Python\nMediaPipe Pose\nLive landmarks + timestamps" as Pose
+queue "Latest-pose slot\nBounded / overwrite stale frame" as PoseBus
+component "Rust Motion Engine\nMotion buffer · loop · blend\nContinue when performer is still" as Motion
+component "Rust Renderer\nGPU / wgpu · trails · silhouettes" as Render
+component "Projector\nFullscreen output" as Projector
+component "JavaScript UI\nControls · calibration · status" as UI
+database "dance.poses.sqlite" as DB
+file "poses.jsonl" as JSONL
+component "Kaggle / Python\nOffline evaluation and training" as Kaggle
+
+Human --> Camera
+Camera --> Pose : frames (latest-frame policy)
+Pose --> PoseBus : landmarks
+PoseBus --> Motion : newest pose only
+Motion --> Render : render state / motion
+Render --> Projector : low-latency frames
+UI <--> Motion : OSC / WebSocket / local IPC\n(select one transport)
+Pose --> DB : async recording
+DB --> JSONL : export
+JSONL --> Kaggle : upload when needed
+Kaggle --> JSONL : metrics / prepared sequences
+
+note bottom of PoseBus
+Do not build an unbounded frame queue.
+Drop stale frames to prevent latency growth.
+end note
+
+note bottom of Motion
+Live movement drives the output when available.
+When movement stops, continue from buffered motion.
+Keep offline model training out of the live loop.
+end note
+@enduml
