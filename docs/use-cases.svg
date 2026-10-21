@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="820" viewBox="0 0 1200 820" role="img" aria-labelledby="title desc">
+<title id="title">mp-dance-lora use case diagram</title>
+<desc id="desc">Actors for performer, VJ operator, and researcher connected to live capture, projection, calibration, recording, evaluation, training, and safe model deployment use cases.</desc>
+<defs>
+  <style>
+    text{font-family:Inter,Segoe UI,Arial,sans-serif;fill:#172033}
+    .heading{font-size:25px;font-weight:700}.actor{font-size:16px;font-weight:600}
+    .uc{fill:#fff;stroke:#52647a;stroke-width:1.5}.sys{fill:#f4f7fb;stroke:#8494a7;stroke-width:2}
+    .edge{fill:none;stroke:#52647a;stroke-width:1.5}.dash{stroke-dasharray:6 5}
+    .label{font-size:13px;fill:#455468}.note{fill:#fff8df;stroke:#c6a64a;stroke-width:1.2}
+  </style>
+  <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#52647a"/></marker>
+</defs>
+<rect x="16" y="16" width="1168" height="788" rx="16" fill="#fff" stroke="#d8dee8"/>
+<text x="600" y="54" text-anchor="middle" class="heading">mp-dance-lora — Use Case Diagram</text>
+<rect x="250" y="82" width="700" height="680" rx="14" class="sys"/>
+<text x="600" y="110" text-anchor="middle" font-size="17" font-weight="700">Dance VJ System</text>
+<!-- actors -->
+<g stroke="#26364a" stroke-width="2" fill="none">
+ <circle cx="105" cy="170" r="16"/><path d="M105 186V235 M76 204H134 M105 235L82 267 M105 235L128 267"/>
+ <circle cx="105" cy="390" r="16"/><path d="M105 406V455 M76 424H134 M105 455L82 487 M105 455L128 487"/>
+ <circle cx="105" cy="620" r="16"/><path d="M105 636V685 M76 654H134 M105 685L82 717 M105 685L128 717"/>
+</g>
+<text x="105" y="292" text-anchor="middle" class="actor">Performer</text>
+<text x="105" y="512" text-anchor="middle" class="actor">VJ Operator</text>
+<text x="105" y="742" text-anchor="middle" class="actor">Researcher</text>
+<!-- use cases -->
+<g class="uc">
+ <ellipse cx="420" cy="160" rx="135" ry="27"/><ellipse cx="735" cy="160" rx="145" ry="27"/>
+ <ellipse cx="420" cy="230" rx="135" ry="27"/><ellipse cx="735" cy="230" rx="145" ry="27"/>
+ <ellipse cx="420" cy="300" rx="135" ry="27"/><ellipse cx="735" cy="300" rx="145" ry="27"/>
+ <ellipse cx="420" cy="390" rx="135" ry="27"/><ellipse cx="735" cy="390" rx="145" ry="27"/>
+ <ellipse cx="420" cy="460" rx="135" ry="27"/><ellipse cx="735" cy="460" rx="145" ry="27"/>
+ <ellipse cx="420" cy="530" rx="135" ry="27"/><ellipse cx="735" cy="530" rx="145" ry="27"/>
+ <ellipse cx="420" cy="600" rx="135" ry="27"/><ellipse cx="735" cy="600" rx="145" ry="27"/>
+ <ellipse cx="420" cy="680" rx="135" ry="27"/><ellipse cx="735" cy="680" rx="145" ry="27"/>
+</g>
+<g font-size="14" text-anchor="middle">
+ <text x="420" y="165">Capture live movement</text><text x="735" y="155">Estimate body pose</text><text x="735" y="171">with MediaPipe</text>
+ <text x="420" y="235">Project visuals in real time</text><text x="735" y="225">Continue motion when</text><text x="735" y="241">performer is still</text>
+ <text x="420" y="305">Calibrate camera / projection</text><text x="735" y="295">Adjust effects and</text><text x="735" y="311">motion parameters</text>
+ <text x="420" y="395">Record timestamped pose data</text><text x="735" y="385">Export pose dataset</text><text x="735" y="401">(JSONL)</text>
+ <text x="420" y="465">Analyze motion quality</text><text x="735" y="455">Train candidate motion /</text><text x="735" y="471">LoRA model</text>
+ <text x="420" y="535">Evaluate candidate model</text><text x="735" y="525">Promote or roll back</text><text x="735" y="541">model version</text>
+ <text x="420" y="605">Monitor latency, FPS, memory</text><text x="735" y="595">Replay / loop / blend</text><text x="735" y="611">buffered motion</text>
+ <text x="420" y="685">Review session / dataset</text><text x="735" y="675">Keep projection independent</text><text x="735" y="691">from training</text>
+</g>
+<!-- actor association lines -->
+<g class="edge">
+ <path d="M134 170 L285 160"/><path d="M134 190 L290 230"/><path d="M134 220 L290 395"/>
+ <path d="M134 410 L285 300"/><path d="M134 430 L285 460"/><path d="M134 450 L285 600"/>
+ <path d="M134 630 L285 530"/><path d="M134 650 L285 680"/><path d="M134 680 L600 710"/>
+</g>
+<rect x="290" y="720" width="620" height="28" rx="6" class="note"/>
+<text x="600" y="738" text-anchor="middle" font-size="13">Background training never blocks projection; validate, switch safely, keep rollback.</text>
+</svg>
